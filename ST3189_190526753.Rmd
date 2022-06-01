@@ -1,0 +1,1032 @@
+---
+title: "190526753_coursework"
+author: "190526753"
+date: "3/25/2022"
+output: 
+  html_document:
+    fig_width: 8
+    fig_height: 6
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,warning=F)
+```
+# part 1 
+
+1) Analyze and summarize the information in the data with unsupervised learning techniques.
+<br/>
+
+
+#### Load library
+```{r library for part 1}
+require(graphics)
+library(ggplot2)
+library(factoextra)
+library(corrplot)
+library(magrittr)
+library(ggfortify)
+```
+
+#### Import and prepare the EWCS dataset.
+```{r import and prepare the EWCS dataset}
+ewcs=read.table("EWCS_2016.csv",sep=",",header=TRUE)
+ewcs[,][ewcs[, ,] == -999] <- NA
+kk=complete.cases(ewcs)
+ewcs=ewcs[kk,]
+```
+
+```{r summary}
+ewcs_summary <- prcomp(ewcs,center = TRUE,scale = TRUE)
+print(ewcs_summary)
+```
+* It demonstrates degree of contribution of each variable
+<br/>
+```{r screeplot of the summary}
+screeplot(ewcs_summary, main = "Screeplot of ewcs", col = "steelblue", type = "line", pch = 1, npcs = length(ewcs_summary$sdev))
+
+summary(ewcs_summary)
+```
+* PC6's standard deviation tells us it's 0.75 dispersed in relation to the mean of the data, proportion of variance tells us the influence contributed and cumulative proportion tells us that 83% of the data is explained by PC6.
+<br/>
+```{r biplot}
+biplot(ewcs_summary)
+```
+
+* The closer the distance and direction, the higher the correlation of the variables. Thus we can assume that Q87a ~ Q87e are correlated and Q90a,Q90b,Q90c and Q90f are correlated.
+<br/>
+```{r convert names of the columns}
+ewcs <- setNames(ewcs, c("Gender","Age","L_Cheerful","L_Calm","L_Active","L_WakeUpFreshed","L_Interesting","W_Energetic","W_Enthusiastic","W_TimeFlies","W_Expert"))
+```
+* Hence change the column names and group them into two different classification, "Life" and "Work". "L" for life and "W" for work
+<br/>
+<br/>
+
+#### Extract variables to look at the various aspects of the data
+```{r extract variables}
+LifeWork_satisfaction <- ewcs[, 3:11]
+life_satisfaction <- ewcs[, 3:7]
+work_satisfaction <- ewcs[, 8:11]
+```
+
+```{r life satisfaction v}
+apply(life_satisfaction, 2, var)
+```
+* Among "Life", "WakeUpFreshed" has the biggest variance.
+<br/>
+```{r}
+apply(work_satisfaction, 2, var)
+```
+* Among "Work", "Enthusiastic" has the biggest variance.
+<br/>
+
+#### Life and work satisfaction variables
+```{r life and work satisfaction summary}
+LifeWork_satisfaction_summary <- prcomp(LifeWork_satisfaction, center = TRUE,scale = TRUE)
+print(LifeWork_satisfaction_summary)
+screeplot(LifeWork_satisfaction_summary, main = "Screeplot of life and work satisfaction summary", col = "steelblue", type = "lines", pch = 1, npcs = length(LifeWork_satisfaction_summary$sdev))
+
+summary(LifeWork_satisfaction_summary)
+```
+* For life-work satisfaction which includes both “life” and “work” variables, 5 principal component (PC) seems to be the elbow point, a point at which the slope changes. With the summary and plot, we can identify that PC5 has cumulative proportion of 85% which then means with 5 PC, we can explain 85% of the variation. Hence, 5 PC could be a simpler substitute for all 9 factors as it could explain most of the variability without losing copious amount of its initial variability.
+<br/>
+<br/>
+
+#### Life satisfaction variables
+```{r life satisfaction summary}
+life_satisfaction_summary <- prcomp(life_satisfaction, center = TRUE,scale = TRUE)
+print(life_satisfaction_summary)
+screeplot(life_satisfaction_summary, main = "Screeplot of life satisfaction summary", col = "steelblue", type = "lines", pch = 1, npcs = length(life_satisfaction_summary$sdev))
+
+summary(life_satisfaction_summary) # PC1, 71%
+```
+
+#### Work satisfaction variables
+
+```{r work satisfaction summary}
+work_satisfaction_summary <- prcomp(work_satisfaction,center = TRUE, scale = TRUE)
+print(work_satisfaction_summary)
+screeplot(work_satisfaction_summary, main = "Screeplot of work satisfaction summary", col = "steelblue", type = "lines", pch = 1, npcs = length(work_satisfaction_summary$sdev))
+
+summary(work_satisfaction_summary)# PC2, 74%
+```
+
+#### ewcs correlation matrix
+```{r ewcs correlation matrix}
+ewcs_cor <- cor(ewcs)
+corrplot(ewcs_cor,main = "ewcs correlation matrix",method="number",number.cex = 0.5,tl.cex = 0.5,cex.main = 0.5)
+```
+<br/>
+* From the correlation matrix, we can identify that gender and age have very low or no correlation to each other and also to life and work satisfaction variables. Furthermore, we can once again identify that life satisfaction variables(cheerful,calm,active,wakeupfreshed,interesting) and work satisfaction variables(energetic,enthusiastic,timeflies,expert) have correlation within each of the variables.
+<br/>
+```{r sum up ewcs variables}
+ewcs_sum <- ewcs
+
+ewcs_sum$Life <- ewcs_sum$L_Cheerful + ewcs_sum$L_Calm + ewcs_sum$L_Active + ewcs_sum$L_WakeUpFreshed + ewcs_sum$L_Interesting
+ewcs_sum$Work <- ewcs_sum$W_Energetic + ewcs_sum$W_Enthusiastic + ewcs_sum$W_TimeFlies + ewcs_sum$W_Expert
+```
+* Hence, to see the clear picture, we will sum up the score of each life and work satisfaction.
+<br/>
+
+```{r ewcs correlation plot}
+ewcs_sum <- ewcs_sum[,-(3:11)]
+```
+* Drop unnecessary columns
+
+```{r}
+ewcs_sum_cor <- cor(ewcs_sum)
+corrplot(ewcs_sum_cor,main = "adjusted ewcs correlation matrix",method="number",tl.cex = 0.8,cex.main = 0.5)
+```
+
+* There is correlation between life and work.
+<br/>
+
+### Deep dive into PCA
+
+* Turn Gender into a factor
+
+```{r factor transformation}
+ewcs$Gender <- factor(ifelse(ewcs$Gender > 1, "Female", "Male"))
+```
+
+#### Degree of contribution of each variable
+
+```{r degree of contribution}
+ewcs1<- prcomp(ewcs[,2:11],center = TRUE,scale = TRUE)
+print(ewcs1) 
+```
+
+```{r screeplot of ewcs1}
+screeplot(ewcs1, main = "Screeplot of ewcs1", col = "steelblue", type = "line", pch = 1, npcs = length(ewcs1$sdev))
+summary(ewcs1)
+```
+
+* With 4 PC, we can explain 76% of the variance.
+<br/>
+```{r autoplot of ewcs1}
+
+autoplot(ewcs1, data = ewcs, colour = 'Gender',
+         label = FALSE, 
+         loadings = TRUE, loadings.colour = 'steelblue',
+         loadings.label = TRUE, 
+         loadings.label.size = 4, 
+         loadings.label.colour = "black",
+         loadings.label.repel=T) + 
+  theme(legend.text = element_text(size = 8), 
+        legend.title = element_text(size = 10), 
+        axis.title = element_text(size = 8)) 
+```
+
+#### Adjusted ewcs
+```{r}
+ewcs2<- prcomp(ewcs_sum[,2:4],center = TRUE,scale = TRUE)
+print(ewcs2)
+```
+
+```{r}
+screeplot(ewcs2, main = "Screeplot of ewcs2", col = "steelblue", type = "line", pch = 1, npcs = length(ewcs2$sdev))
+summary(ewcs2)
+```
+
+* The first and second PC explains 50% and 33% of the total variance. First PC has large negative associations of Life and Work while second PC has positive associations of age. We can once again identify with a clear picture that “Life” and “Work” have positive correlation to each other but not to gender and age.
+
+```{r autoplot ewcs2}
+autoplot(ewcs2, data = ewcs, colour = 'Gender',
+         label = FALSE, 
+         loadings = TRUE, loadings.colour = 'steelblue',
+         loadings.label = TRUE, 
+         loadings.label.size = 4, 
+         loadings.label.colour = "black",
+         loadings.label.repel=T) + 
+  theme(legend.text = element_text(size = 8), 
+        legend.title = element_text(size = 10), 
+        axis.title = element_text(size = 8)) 
+
+```
+
+# part 2 
+2) Compare regression models by interpreting and assessing its performance.
+<br/>
+<br/>
+
+#### Load library
+```{r library for part 2}
+library(dplyr)
+library(caret)
+library(caTools)
+library(randomForest)
+library(glmnet)
+library(car)
+library(ggpubr)
+library(e1071)
+```
+
+#### Import and prepare the student performance dataset.
+```{r import student performance dataset}
+school1=read.table("student-mat.csv",sep=";",header=TRUE) # Mathematics
+school2=read.table("student-por.csv",sep=";",header=TRUE) # Portuguese
+schools=merge(school1, school2, by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+```
+
+#### Exploratory data analysis
+
+```{r average G3 of mat by gender}
+schools_sex <- schools %>%
+  group_by(sex) %>%
+  summarise(Average_G3_mat = mean(G3.x),Average_G3_por = mean(G3.y))
+
+ggplot(data = schools_sex, mapping = aes(x = sex, y = Average_G3_mat)) +
+  geom_bar(stat='identity',fill="steelblue") +
+  geom_text(mapping = aes(label = round(Average_G3_mat,0), fontface = 'bold', vjust = -0.2), size = 2) +
+  labs(title = "Average mat G3 ",x = "Gender", y ="Average G3")+
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+```{r average G3 of por by gender}
+ggplot(data = schools_sex, mapping = aes(x = sex, y = Average_G3_por)) +
+  geom_bar(stat='identity',fill="steelblue") +
+  geom_text(mapping = aes(label = round(Average_G3_por,0), fontface = 'bold', vjust = -0.2), size = 2) +
+  labs(title = "Average por G3",x = "Gender", y ="Average G3")+
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+* Female students tend to do better in Portuguese language then male students.
+* Male students tend to do better in Mathematics then female students.
+<br/>
+
+#### Multiple linear regression
+
+* We will first Assume that the data meets the assumptions for linear regression. Then later on, we will adjust the model to meet its assumptions.
+
+```{r}
+drop <- c("G1.x","G2.x","G1.y","G2.y")
+schools_G3 = schools[,!(names(schools) %in% drop)]
+```
+
+* To build model for G3, drop G1 and G2.
+<br/>
+
+```{r}
+mat <- schools_G3[,1:31]
+por <- schools_G3[, -c(14:31)]
+```
+
+* Switch back to two distinct subjects with complete period grades. 
+<br/>
+
+```{r correlation matrix of mat}
+mat_numeric <- select_if(mat, is.numeric)  
+mat_numeric_cor <-cor(mat_numeric)
+corrplot(mat_numeric_cor,main = "Correlation matrix of mat", method="number",number.cex = 0.5,tl.cex = 0.5,cex.main = 0.5)
+```
+
+```{r correlation matrix of por}
+por_numeric <- select_if(por, is.numeric)  
+por_numeric_por <-cor(por_numeric)
+corrplot(por_numeric_por, main = "Correlation matrix of por",method="number",number.cex = 0.5,tl.cex = 0.5,cex.main = 0.5)
+```
+
+* we can observe that G3 is slightly correlated to medu, fedu, and studytime for both mat and por.
+<br/>
+```{r histogram of mat and por G3}
+hist(mat$G3.x)
+hist(por$G3.y)
+```
+
+* Seems left skewed.
+<br/>
+
+#### Create a list of 70% of the rows in the mat and por.
+
+```{r train test split}
+set.seed(1)
+mat_training_sample <- createDataPartition(mat$G3.x,p = 0.7, list = FALSE)
+por_training_sample <- createDataPartition(por$G3.y,p = 0.7, list = FALSE)
+```
+
+```{r set training data}
+mat_dataset<- mat[mat_training_sample,]
+por_dataset<- por[por_training_sample,]
+```
+* Use the 70% of data to train the model
+
+```{r set validation data}
+mat_validation <- mat[-mat_training_sample,]
+por_validation <- por[-por_training_sample,]
+```
+* Use the 30% of the data to validate the model.
+
+#### Split input and output for training and validation
+
+* Training
+
+```{r training dataset input and output}
+mat_dataset_output <- mat_dataset[,31]
+por_dataset_output <- por_dataset[,31]
+mat_dataset_input <- mat_dataset[,1:30]
+por_dataset_input <- por_dataset[,1:30]
+```
+
+* Validation 
+
+```{r validation dataset input and output}
+mat_validation_output <- mat_validation[,31]
+por_validation_output <- por_validation[,31]
+mat_validation_input <- mat_validation[,1:30]
+por_validation_input <- por_validation[,1:30]
+```
+
+#### Train the model using linear regression 
+
+```{r Train lm model}
+set.seed(1)
+mat_lm <- lm(G3.x~.,mat_dataset)
+por_lm <- lm(G3.y~.,por_dataset)
+
+sqrt(mean(mat_lm$residuals^2)) # 3.730919
+sqrt(mean(por_lm$residuals^2)) # 2.110835
+summary(mat_lm)$r.squared # 0.3454868
+summary(por_lm)$r.squared # 0.4543227
+
+summary(mat_lm)
+summary(por_lm)
+```
+
+#### Test the model using linear regression
+
+```{r Test lm model}
+set.seed(1)
+mat_lm_validate <- lm(G3.x~.,mat_validation)
+por_lm_validate <- lm(G3.y~.,por_validation)
+```
+
+* RMSE
+```{r}
+sqrt(mean(mat_lm_validate$residuals^2))
+sqrt(mean(por_lm_validate$residuals^2))
+```
+* R^2^
+```{r}
+summary(mat_lm_validate)$r.squared
+summary(por_lm_validate)$r.squared
+```
+<br/>
+
+#### Multiple linear regression RMSE and R^2^ (assumed noramlly distributed)
+
+* Train
+* RMSE:  3.730919(mat) 2.110835(por)
+* R^2^:  0.3454868(mat)  0.4543227(por)
+<br/>
+
+* Test
+* RMSE: 3.341797(mat) 2.00442(por)
+* R^2^:  0.5227731(mat) 0.5901086(por)
+<br/>
+<br/>
+
+#### Normality test 
+* We will test the assumptions of a multiple linear regression
+
+```{r diagnostic plot for mat and por linear regression}
+par(mfrow=c(2,2))
+plot(mat_lm, main="mat")
+plot(por_lm, main="por")
+```
+
+* No distinctive pattern for residuals vs. fitted.
+
+* Looking at normal Q-Q plot, distribution of residuals seem heavy on the tails.
+
+* Homoscedasticity for Scale-location.
+
+* Looking at residuals vs. leverage, we cant see Cook’s distance lines, hence there are no influential case.
+<br/>
+<br/>
+
+* Furthermore, besides Q-Q plot, we can check the normality with density plot and normality test.
+<br/>
+
+#### Density plot
+
+```{r density plot of mat and por G3}
+ggdensity(mat$G3.x)+
+  labs(title = "Density plot of G3.x",x = "G3", y ="Density")
+
+
+ggdensity(por$G3.y)+
+  labs(title = "Density plot of G3.y",x = "G3", y ="Density")
+
+skewness(mat$G3.x) #-0.70 = moderately skewed
+skewness(por$G3.y) #-0.99 = moderately skewed
+```
+
+* Density plots seem moderately left skewed.
+
+#### Shapiro-Wilk Normality Test
+
+```{r Shapiro-Wilk Normality Test for mat and por lm}
+shapiro.test(mat_lm$residuals)
+shapiro.test(por_lm$residuals)
+```
+* Both of the p-values are < 0.05, thus the residuals are not normally distributed.
+
+#### Identify Multicollinearity
+
+```{r VIF for mat and por lm}
+vif(mat_lm)    
+vif(por_lm)
+```
+
+* Since they are all below 5, there are no multicollinearity detected.
+
+#### Identify outliers
+
+```{r identify outlier for mat and por lm}
+mat_standard_residuals <-rstandard(mat_lm)
+por_standard_residuals <-rstandard(por_lm)
+
+mat_lm_sr <- cbind(mat_dataset, mat_standard_residuals)
+por_lm_sr <- cbind(por_dataset, por_standard_residuals)
+
+```
+
+* Sort standardized residuals by descending and ascending order
+
+```{r standardized residuals sorted}
+head(mat_lm_sr[order(-mat_standard_residuals),]$mat_standard_residuals)
+head(mat_lm_sr[order(mat_standard_residuals),]$mat_standard_residuals)
+head(por_lm_sr[order(-por_standard_residuals),]$por_standard_residuals)
+head(por_lm_sr[order(por_standard_residuals),]$por_standard_residuals)
+```
+
+* Mat's standardized residual of #199 and por's standardized residual of #371, 382, 331 exceeds -3.
+* This is an outlier. We should investigate them further to verify that they’re not a result of a data entry error or some other odd occurrence.  
+
+#### Furthermore, we could try using log(y) or root(y) to adjust values of y to make it noramlly distributed.
+<br/>
+<br/>
+
+##### log(y) (log-linear model)
+
+```{r log(y)}
+mat_lm_log <- lm(log(G3.x+1)~.,mat_dataset)
+por_lm_log <- lm(log(G3.y+1)~.,por_dataset)
+
+par(mfrow=c(2,2))
+plot(mat_lm_log)
+plot(por_lm_log)
+```
+
+* Shapiro-Wilk Normality Test for log(y)
+```{r Shapiro-Wilk Normality Test for log(y)}
+shapiro.test(mat_lm_log$residuals)
+shapiro.test(por_lm_log$residuals)
+```
+* Both not normally distributed as P-value < 0.05
+
+##### sqrt(y)
+```{r sqrt(y)}
+mat_lm_sq <- lm(sqrt(G3.x)~.,mat_dataset)
+por_lm_sq <- lm(sqrt(G3.y)~.,por_dataset)
+
+par(mfrow=c(2,2))
+plot(mat_lm_sq)
+plot(por_lm_sq)
+```
+
+* Shapiro-Wilk Normality Test for sqrt(y)
+```{r Shapiro-Wilk Normality Test for sqrt(y)}
+shapiro.test(mat_lm_log$residuals)
+shapiro.test(por_lm_log$residuals)
+```
+* Both not normally distributed as P-value < 0.05.
+
+#### As we make y smaller, it seems to get worse, hence try increasing y.
+
+* y^(1.3 ~ 1.7) gives normally distributed result.
+
+```{r y^1.5}
+mat_lm_adjusted <- lm((G3.x)^(3/2)~.,mat_dataset)
+por_lm_adjusted <- lm((G3.y)^(3/2)~.,por_dataset)
+
+par(mfrow=c(2,2))
+plot(mat_lm_adjusted, main= "mat adjusted")
+plot(por_lm_adjusted, main= "por adjusted")
+```
+
+
+```{r Shapiro-Wilk Normality Test for adjusted y}
+shapiro.test(mat_lm_adjusted$residuals)
+shapiro.test(por_lm_adjusted$residuals)
+```
+* Both normally distributed as p-value > 0.05
+* y raised to 1.3 ~ 1.7 seems normally distributed. Hence we will use 3/2 or 1.5, the number in between.
+<br/>
+
+#### Regularization with lasso regression
+
+* k-fold cross-validation to find optimal lambda value
+
+```{r setting mat and por dataset input and output into matrix}
+mat_dataset_input_matrix <- model.matrix(G3.x~.-1, mat_dataset)
+por_dataset_input_matrix <- model.matrix(G3.y~.-1, por_dataset)
+mat_validation_input_matrix <- model.matrix(G3.x~.-1, mat_validation)
+por_validation_input_matrix <- model.matrix(G3.y~.-1, por_validation)
+```
+
+```{r}
+set.seed(1)
+mat_lasso <- glmnet(mat_dataset_input_matrix, mat_dataset_output^(3/2), alpha = 1)
+por_lasso <- glmnet(por_dataset_input_matrix, por_dataset_output^(3/2), alpha = 1)
+```
+```{r}
+cv_mat <- cv.glmnet(mat_dataset_input_matrix, mat_dataset_output^(3/2), alpha = 1)
+cv_por <- cv.glmnet(por_dataset_input_matrix, por_dataset_output^(3/2), alpha = 1)
+```
+
+* Lambda value which minimizes MSE testing
+
+```{r}
+best_cv_mat_lambda <- cv_mat$lambda.min
+best_cv_mat_lambda 
+best_cv_por_lambda <- cv_por$lambda.min
+best_cv_por_lambda 
+```
+* lambda value of 1.13 for mat and 0.53 for por minimizes MSE.
+<br/>
+
+* Plotting MSE test
+
+```{r}
+par(mfrow=c(1,1))
+plot(cv_mat, main = "mat MSE test") 
+plot(cv_por, main = "por MSE test")
+```
+
+* Coefficients of the best model
+
+```{r}
+best_mat <- glmnet(mat_dataset_input_matrix, mat_dataset_output^(3/2), alpha = 1, lambda = best_cv_mat_lambda)
+coef(best_mat)
+
+best_por <- glmnet(por_dataset_input_matrix, por_dataset_output^(3/2), alpha = 1, lambda = best_cv_por_lambda)
+coef(best_por)
+```
+
+* Predictors without coefficient tells us that it is not influential to the model.
+<br/>
+
+#### Use lasso regression model to predict response value
+
+```{r}
+best_mat_lasso  <- predict(best_mat, s = best_cv_mat_lambda, type="coefficients")
+best_por_lasso <- predict(best_por, s = best_cv_por_lambda, type="coefficients")
+```
+* As we have adjusted our model by y^3/2 to make it normally distributed, we will adjust it back by y^2/3
+
+#### Training lasso regression model
+
+```{r}
+mat_dataset_pred <- predict(mat_lasso, s = best_cv_mat_lambda, newx = mat_dataset_input_matrix)
+por_dataset_pred <- predict(por_lasso, s = best_cv_por_lambda, newx = por_dataset_input_matrix)
+
+```
+
+
+#### RMSE and R^2^ of the training model
+
+* Mat
+```{r}
+postResample(mat_dataset_pred^(2/3),mat_dataset_output)
+```
+
+* Por
+```{r}
+postResample(por_dataset_pred^(2/3),por_dataset_output)
+```
+
+#### Testing lasso regression model
+
+```{r}
+mat_validation_pred <- predict(mat_lasso, s = best_cv_mat_lambda, newx = mat_validation_input_matrix)
+por_validation_pred <- predict(por_lasso, s = best_cv_por_lambda, newx = por_validation_input_matrix)
+```
+
+#### RMSE and R^2^ of the validation model
+
+* Mat
+```{r}
+postResample(mat_validation_pred^(2/3),mat_validation_output)
+```
+
+* Por
+```{r}
+postResample(por_validation_pred^(2/3),por_validation_output)
+```
+<br/>
+
+#### Lasso regression RMSE and R^2^
+* Train
+* RMSE:  4.0240604(mat) 2.2005416(por)
+* R^2^:  0.2673442(mat)  0.4270536(por)
+<br/>
+
+* Test
+* RMSE: 4.7071885(mat) 2.8858860(por)
+* R^2^:  0.1065235(mat) 0.1598111(por)
+<br/>
+<br/>
+
+#### Random Forest Model
+* Furthermore, we will try using tree based method for improvements.
+
+```{r}
+control <- trainControl(method="repeatedcv", number=10, repeats = 3)
+metric <- "RMSE"
+```
+
+#### Train the random forest model
+
+```{r}
+set.seed(1)
+mat_rf_train <- train(G3.x~., data=mat_dataset, method="rf", importance=TRUE 
+                    ,tuneGrid= expand.grid(.mtry=sqrt(ncol(mat_dataset_input))),metric=metric, trControl=control)
+
+set.seed(1)
+por_rf_train <- train(G3.y~., data=por_dataset, method="rf", importance=TRUE
+                    ,tuneGrid= expand.grid(.mtry=sqrt(ncol(por_dataset_input))),metric=metric, trControl=control)
+```
+
+```{r}
+mat_rf_train
+por_rf_train
+```
+
+#### Validate the random forest model
+
+```{r}
+set.seed(1)
+mat_rf_validate <- train(G3.x~., data=mat_validation, method="rf", importance=TRUE 
+                ,tuneGrid= expand.grid(.mtry=sqrt(ncol(mat_validation_input))),metric=metric, trControl=control)
+set.seed(1)
+por_rf_validate <- train(G3.y~., data=por_validation, method="rf", importance=TRUE
+                ,tuneGrid= expand.grid(.mtry=sqrt(ncol(por_validation_input))),metric=metric, trControl=control)
+```
+
+```{r}
+mat_rf_validate
+por_rf_validate
+```
+
+#### Random Forest RMSE and R^2^
+* Train
+* RMSE:  3.936823(mat) 2.345072(por)
+* R^2^:  0.2973943(mat)  0.3521341(por)
+<br/>
+
+* Test
+* RMSE: 4.417505 (mat) 2.76248(por)
+* R^2^:  0.2494508(mat) 0.2834576(por)
+<br/>
+<br/>
+
+#### or other way to do this is by
+
+```{r}
+set.seed(1)
+rf_test_mat <- randomForest(G3.x~ ., data = mat_dataset, mtry = sqrt(ncol(mat_dataset_input)),
+                            importance = TRUE)
+
+rf_test_por <- randomForest(G3.y~ ., data = por_dataset, mtry = sqrt(ncol(por_dataset_input)),
+                            importance = TRUE)
+
+rf_test_mat
+rf_test_por
+```
+
+```{r}
+varImp(rf_test_mat,scale = FALSE)
+varImp(rf_test_por,scale = FALSE)
+```
+
+```{r}
+
+varImpPlot(rf_test_mat)
+varImpPlot(rf_test_por)
+```
+
+* Shows importance for each variable to the model.
+
+#### Train
+* mat
+
+```{r}
+y_hat_mat_train <- predict(rf_test_mat, mat_dataset)
+
+y_hat_mat_train_scored <- as_tibble(cbind(mat_dataset, y_hat_mat_train))
+
+
+y_hat_mat_train_rmse <- yardstick::rmse(y_hat_mat_train_scored, truth=mat_dataset_output, estimate=y_hat_mat_train)
+
+y_hat_mat_train_rmse # 1.9
+```
+
+* por
+```{r}
+y_hat_por_train <- predict(rf_test_por, por_dataset)
+
+y_hat_por_train_scored <- as_tibble(cbind(por_dataset, y_hat_por_train))
+
+y_hat_por_train_rmse <- yardstick::rmse(y_hat_por_train_scored, truth=por_dataset_output, estimate=y_hat_por_train)
+
+y_hat_por_train_rmse # 1.19
+```
+
+#### Test
+* mat
+
+```{r}
+y_hat_mat_test <- predict(rf_test_mat, mat_validation)
+
+y_hat_mat_test_scored <- as_tibble(cbind(mat_validation, y_hat_mat_test))
+
+y_hat_mat_test_rmse <- yardstick::rmse(y_hat_mat_test_scored, truth=mat_validation_output, estimate=y_hat_mat_test)
+
+y_hat_mat_test_rmse # 4.19
+```
+
+* por
+
+```{r}
+y_hat_por_test <- predict(rf_test_por, por_validation)
+
+y_hat_por_test_scored <- as_tibble(cbind(por_validation, y_hat_por_test))
+
+y_hat_por_test_rmse <- yardstick::rmse(y_hat_por_test_scored, truth=por_validation_output, estimate=y_hat_por_test)
+
+y_hat_por_test_rmse # 2.76
+```
+
+### Conclusion
+
+#### Multiple linear regression RMSE and R^2^
+* Train
+* RMSE:  3.730919(mat) 2.110835(por)
+* R^2^:  0.3454868(mat)  0.4543227(por)
+<br/>
+
+* Test
+* RMSE: 3.341797(mat) 2.00442(por)
+* R^2^:  0.5227731(mat) 0.5901086(por)
+<br/>
+<br/>
+
+#### Lasso regression RMSE and R^2^
+* Train
+* RMSE:  4.0240604(mat) 2.2005416(por)
+* R^2^:  0.2673442(mat)  0.4270536(por)
+<br/>
+
+* Test
+* RMSE: 4.7071885(mat) 2.8858860(por)
+* R^2^:  0.1065235(mat) 0.1598111(por)
+<br/>
+<br/>
+
+#### Random Forest RMSE and R^2^
+* Train
+* RMSE:  3.936823(mat) 2.345072(por)
+* R^2^:  0.2973943(mat)  0.3521341(por)
+<br/>
+
+* Test
+* RMSE: 4.417505 (mat) 2.76248(por)
+* R^2^:  0.2494508(mat) 0.2834576(por)
+<br/>
+<br/>
+
+##### As shown in the table, por datasets tend to fit better into the models.
+
+# part 3 
+3) Compare classification models by interpreting and assessing its performance.
+<br/>
+<br/>
+
+#### Load library
+```{r library for part 3}
+library(ROSE)
+```
+
+#### Import and prepare the bank marketing dataset.
+```{r import}
+bank = read.table("bank.csv",sep=";",header=TRUE, stringsAsFactors = T)
+```
+<br/>
+* Exclude column "duration" since our intention is to have a realistic predictive model.
+
+```{r}
+bank1 <- bank[,-12]
+```
+<br/>
+* set "yes" as the positive class
+
+```{r}
+bank1$y <- relevel(bank1$y, ref = "yes")
+levels(bank1$y)
+```
+<br/>
+* Create a list of 70% of the rows in the bank1 dataset.
+
+```{r}
+set.seed(1)
+bank1_training_sample <- createDataPartition(bank1$y,p = 0.7, list = FALSE)
+
+```
+<br/>
+* Use the 70% of data for training and testing the models.
+
+```{r}
+bank1_dataset<- bank1[bank1_training_sample,]
+```
+<br/>
+* Use the 30% of the data to validate the model.
+
+```{r}
+bank1_validation <- bank1[-bank1_training_sample,]
+```
+<br/>
+* split input and output for training and validation
+```{r}
+output <- bank1_dataset[16]
+input <- bank1_dataset[1:15]
+
+bank1_dataset_output <- bank1_dataset[16]
+bank1_dataset_input <- bank1_dataset[1:15]
+
+bank1_validation_output <- bank1_validation[16]
+bank1_validation_input <- bank1_validation[1:15]
+```
+<br/>
+
+#### Logistic Regression
+* Run algorithms using 10-fold cross validation. 
+```{r}
+control <- trainControl(method="repeatedcv", number=10, repeats = 3)
+metric <- "Accuracy"
+```
+
+```{r}
+set.seed(1)
+bank1_fit_glm <- train(y~., data=bank1_dataset, method="glm", metric=metric, trControl=control, family="binomial")
+```
+
+```{r}
+confusionMatrix(bank1_fit_glm)
+```
+
+```{r}
+bank1_pred <- predict(bank1_fit_glm, bank1_validation[,-16])
+
+head(data.frame(original = bank1_validation_output, pred = bank1_pred))
+
+table(bank1_dataset_output)
+```
+
+* From the table, we can observe that "yes" is much less compared to "no". This may cause class imbalance which results to bias.
+
+* Since we are interested on the clients status of subscription after the phone call, we need to revise the model because not subscribed status is dominated over subscribed status.
+
+```{r}
+prop.table(table(bank1_dataset_output))
+```
+* Proportion rate of class shows 12% for subscription to term deposit and 88% for non subscription to term deposit after the call.
+
+```{r}
+par(mfrow=c(1, 1))
+barplot(prop.table(table(bank1_dataset_output)),
+        ylim = c(0, 0.9),
+        main = "Class Distribution")
+```
+
+* To make the class balanced, we will be using 3 techniques to balance the class.
+<br/>
+
+#### Undersampling
+```{r}
+set.seed(1)
+undersampling <- ovun.sample(y~., data=bank1_dataset, method = "under",N = 720 ,seed = 1)$data
+table(undersampling$y)
+```
+
+#### Oversampling
+
+```{r}
+oversampling <- ovun.sample(y~., data=bank1_dataset, method = "over",N = 5600,seed = 1)$data
+table(oversampling$y)
+```
+
+#### Both (Over & Under)
+
+```{r}
+bothsampling <- ovun.sample(y~., data=bank1_dataset, method = "both",N = 3165, p=.5 ,seed = 1)$data
+table(bothsampling$y)
+```
+
+* With 3 techniques, predict the model using each data and evaluate its accuracy then build decision tree models.
+
+```{r}
+library(rpart)
+set.seed(1)
+tree.over <- rpart(y~., data=oversampling)
+tree.under <- rpart(y~., data=undersampling)
+tree.both <- rpart(y~., data=bothsampling)
+
+pred.tree.over <- predict(tree.over, newdata = bank1_dataset)
+pred.tree.under <- predict(tree.under, newdata = bank1_dataset)
+pred.tree.both <- predict(tree.both, newdata = bank1_dataset)
+```
+
+* ROC curve of Undersampling
+```{r}
+roc.curve(bank1_dataset$y, pred.tree.under[,2])
+```
+
+* ROC curve of Oversampling
+```{r}
+roc.curve(bank1_dataset$y, pred.tree.over[,2])
+```
+
+* ROC curve of Bothsampling
+```{r}
+roc.curve(bank1_dataset$y, pred.tree.both[,2])
+```
+
+* Use Bothsampling method as it gives highest AUC score.
+
+```{r}
+set.seed(1)
+bank1_fit_glm_bothsampling <- train(y~., data=bothsampling, method="glm", metric=metric, trControl=control, family="binomial")
+
+bank1_fit_glm_bothsampling_pred <- predict(bank1_fit_glm_bothsampling, bank1_validation)
+
+confusionMatrix(bank1_fit_glm_bothsampling_pred, bank1_validation$y,positive="yes")
+```
+<br/>
+
+* glm variable importance
+```{r}
+varImp(bank1_fit_glm_bothsampling,scale=FALSE)
+```
+
+#### Random Forest 
+
+```{r}
+control1 <- trainControl(method="cv", number=10)
+```
+
+```{r}
+set.seed(1)
+bank1_fit_rf <- train(y~., data=bank1_dataset, method="rf", metric=metric, trControl=control1)
+
+bank1_fit_rf
+```
+
+* It shows that mtry of 21 has the highest accuracy for bank1_fit_rf.
+
+```{r}
+summary(bank1_fit_rf)
+```
+
+```{r}
+confusionMatrix(bank1_fit_rf)
+```
+
+```{r}
+bank1_pred_rf <- predict(bank1_fit_rf, bank1_validation[,-16])
+
+bank1_pred_rf %>% confusionMatrix(bank1_validation$y)
+```
+
+* Using Bothsampling method,
+
+```{r}
+set.seed(1)
+bank1_fit_rf_bothsampling <- train(y~., data=bothsampling, method="rf", metric=metric, trControl=control1)
+
+bank1_fit_rf_bothsampling
+```
+
+* Random Forest variable importance
+```{r}
+varImp(bank1_fit_rf_bothsampling,scale=FALSE)
+```
+
+```{r}
+confusionMatrix(bank1_fit_rf_bothsampling)
+```
+
+```{r}
+bank1_pred_rf_bothsampling <- predict(bank1_fit_rf_bothsampling, bank1_validation[,-16])
+bank1_pred_rf_bothsampling %>% confusionMatrix(bank1_validation$y)
+```
+
+* To conclude, as we look at the accuracy rate of both Logistic and Random Forest model, Random Forest model seemed to show better accuracy as it resulted higher accuracy rate. However, since our interest was on correctly identifying the clients who would subscribe to a term deposit, logistic regression model would be preferred as it showed 63% of sensitivity rate compared to Random Forest model which gave 35%. Furthermore, we should keep in mind that accuracy is not the only evaluation to consider when evaluating the model. One should also consider the flexibility and robustness of the model when facing new datasets.
